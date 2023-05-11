@@ -1,0 +1,14 @@
+[Unit]
+Description=voiceofmind
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+User=
+Environment=TOKEN=
+Environment=DATA_FOLDER=
+ExecStart=
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+/daily wash
+
+
+/task
+wash
+- id 11
+- date 05 Jan 2023
+- score 12
+
+/complete 11
