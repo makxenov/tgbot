@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 var mutex sync.Mutex
@@ -19,7 +17,6 @@ func _check(err error) {
 }
 
 var bot *BotApi
-var c chan int64
 var tm *TaskManager
 
 func commandDispatcher() {
@@ -37,7 +34,7 @@ func commandDispatcher() {
 		dailyId:    0,
 		dailyRec:   make(map[int]Task),
 		dailyRecId: 0,
-		weekly:     make(map[int]Task),
+		backlog:    make(map[int]Task),
 		weeklyId:   0,
 	}
 
@@ -119,30 +116,7 @@ func commandDispatcher() {
 	}
 }
 
-func noonTask() {
-	tm.load()
-	bot.send(tm.summ())
-}
-func initNoon() {
-	t := curTime()
-	fmt.Println("Id received")
-	loc, err := time.LoadLocation("Asia/Nicosia")
-	_check(err)
-	n := time.Date(t.Year(), t.Month(), t.Day(), 20, 0, 0, 0, loc)
-	d := n.Sub(t)
-	if d < 0 {
-		n = n.Add(24 * time.Hour)
-		d = n.Sub(t)
-	}
-	for {
-		time.Sleep(d)
-		d = 24 * time.Hour
-		noonTask()
-	}
-}
-
 func main() {
-	sayHello()
 	bot = &BotApi{
 		isDebug: false,
 		bot:     nil,
@@ -152,30 +126,21 @@ func main() {
 		bot.isDebug = true
 	}
 	bot.init()
-	go commandDispatcher()
-	go initNoon()
+	initCallbacks()
 
-	checking_interval := 300
-
-	if os.Getenv("CHECKING_INTERVAL") != "" {
-		parsed_int, err := strconv.Atoi(os.Getenv("CHECKING_INTERVAL"))
-		_check(err)
-		checking_interval = parsed_int
-	}
 	if bot.isDebug {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			bot.adapterChan <- scanner.Text()
-		}
+		go func() {
+			defer close(bot.adapterChan)
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				bot.adapterChan <- scanner.Text()
+			}
 
-		if scanner.Err() != nil {
-			fmt.Println(scanner.Err().Error())
-		}
-		return
+			if scanner.Err() != nil {
+				fmt.Println(scanner.Err().Error())
+			}
+		}()
 	}
 
-	for {
-		//
-		time.Sleep(time.Second * time.Duration(checking_interval))
-	}
+	commandDispatcher()
 }

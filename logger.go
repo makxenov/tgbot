@@ -1,19 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"time"
 )
-
-func sayHello() {
-	fmt.Println("Hello")
-	if fits("31 Dec 2022 14:44 Скоро Новый год!", 1) {
-		fmt.Println("fits")
-	} else {
-		fmt.Println("Not fits")
-	}
-}
 
 func curTime() time.Time {
 	currentTime := time.Now()
