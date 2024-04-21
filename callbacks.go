@@ -17,7 +17,7 @@ func notify(since time.Time, period time.Duration, handler doer) {
 
 func dailyNotification() {
 	tm.load()
-	bot.send(tm.summ())
+	bot.send(tm.dailySumm())
 }
 
 func nearestHour(hour int) time.Time {
@@ -40,12 +40,14 @@ func nearestWeakday(weekday time.Weekday, hour int) time.Time {
 
 func weeklyPlanning() {
 	tm.load()
-	bot.send("Plan")
+	bot.send("Remaining tasks:\n" + tm.dailySumm())
+	bot.send("Fill from backlog:\n" + tm.backlogSumm())
 }
 
 func initCallbacks() {
 	// daily task reminder
 	go notify(nearestHour(20), 24*time.Hour, dailyNotification)
+	go notify(nearestHour(10), 24*time.Hour, dailyNotification)
 	// weekly reminder
 	go notify(nearestWeakday(time.Sunday, 21), 24*7*time.Hour, weeklyPlanning)
 }

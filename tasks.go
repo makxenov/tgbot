@@ -49,26 +49,32 @@ func deserialize(str string) (Task, error) {
 }
 
 type TaskManager struct {
-	taskDir    string
-	daily      map[int]Task
-	dailyId    int
-	dailyRec   map[int]Task
-	dailyRecId int
-	weekly     map[int]Task
-	weeklyId   int
+	taskDir   string
+	daily     map[int]Task
+	dailyId   int
+	backlog   map[int]Task
+	backlogId int
 }
 
-func (tm TaskManager) summ() string {
-	res := ""
-	for _, t := range tm.daily {
-		res += fmt.Sprint(t.id, ": ", t.descr, " (", t.score, ")") + "\n"
+func taskListDescr(list map[int]Task) string {
+	res := []string{}
+	for _, t := range list {
+		res = append(res, fmt.Sprint(t.id, ": ", t.descr))
 	}
-	return res
+	return strings.Join(res[:], "\n")
 }
 
-func (tm *TaskManager) addDaily(descr string) {
-	tm.daily[tm.dailyId] = Task{id: tm.dailyId, descr: descr, createDate: curTime(), recurring: false, score: 0}
-	tm.dailyId += 1
+func (tm TaskManager) dailySumm() string {
+	return taskListDescr(tm.daily)
+}
+
+func (tm TaskManager) backlogSumm() string {
+	return taskListDescr(tm.backlog)
+}
+
+func (tm *TaskManager) addBacklog(descr string) {
+	tm.backlog[tm.backlogId] = Task{id: tm.backlogId, descr: descr, createDate: curTime(), recurring: false, score: 0}
+	tm.backlogId += 1
 }
 
 func (tm *TaskManager) completeDaily(id int) bool {
@@ -79,33 +85,52 @@ func (tm *TaskManager) completeDaily(id int) bool {
 	return ok
 }
 
-func (tm TaskManager) dump() {
-	path := tm.taskDir + "daily"
+func (tm *TaskManager) takeToDaily(id int, preserveBacklog bool) bool {
+	task, ok := tm.backlog[id]
+	if !ok {
+		return false
+	}
+	task.id = tm.dailyId
+	tm.daily[tm.dailyId] = task
+	tm.dailyId += 1
+	if !preserveBacklog {
+		delete(tm.backlog, id)
+	}
+	return true
+}
+
+func dumpTaskMap(list map[int]Task, path string) {
 	createFile(path)
 	var lines []string
-	for _, t := range tm.daily {
+	for _, t := range list {
 		lines = append(lines, serialize(t))
 	}
 	writeLines(lines, path)
-	var id [1]string
-	id[0] = fmt.Sprint(tm.dailyId)
-	id_file := tm.taskDir + "ids"
-	writeLines(id[:], id_file)
 }
 
-func (tm *TaskManager) load() {
-	path := tm.taskDir + "daily"
+func loadTaskMap(list map[int]Task, path string) int {
 	lines, e := readLines(path)
 	if e != nil {
-		return
+		return 0
 	}
+	maxid := 0
 	for _, line := range lines {
 		task, e := deserialize(line)
 		_check(e)
-		tm.daily[task.id] = task
+		list[task.id] = task
+		if task.id > maxid {
+			maxid = task.id
+		}
 	}
-	id_file := tm.taskDir + "ids"
-	indices, e := readLines(id_file)
-	_check(e)
-	tm.dailyId = parseInt(indices[0])
+	return maxid + 1
+}
+
+func (tm TaskManager) dump() {
+	dumpTaskMap(tm.daily, tm.taskDir+"daily")
+	dumpTaskMap(tm.backlog, tm.taskDir+"backlog")
+}
+
+func (tm *TaskManager) load() {
+	tm.dailyId = loadTaskMap(tm.daily, tm.taskDir+"daily")
+	tm.backlogId = loadTaskMap(tm.backlog, tm.taskDir+"backlog")
 }
