@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,16 +9,17 @@ import (
 )
 
 type Task struct {
-	descr      string
-	id         int
-	createDate time.Time
+	Descr      string
+	Id         int
+	CreateDate time.Time
 	recurring  bool
-	score      int
+	Score      int
 }
 
 func serialize(task Task) string {
-	dateStr := task.createDate.Format("02 Jan 2006")
-	return fmt.Sprintf("%s$$%d$$%s$$%t$$%d", task.descr, task.id, dateStr, task.recurring, task.score)
+	bytes, err := json.Marshal(task)
+	_check(err)
+	return string(bytes)
 }
 
 type ParseError struct{}
@@ -33,19 +35,9 @@ func parseInt(str string) int {
 }
 
 func deserialize(str string) (Task, error) {
-	splitted := strings.Split(str, "$$")
-	if len(splitted) != 5 {
-		return Task{}, &ParseError{}
-	}
-	layout := "02 Jan 2006"
-	t, err := time.Parse(layout, splitted[2])
-	_check(err)
-	id := parseInt(splitted[1])
-	score := parseInt(splitted[4])
-	recurring, err := strconv.ParseBool(splitted[3])
-	_check(err)
-	task := Task{descr: splitted[0], id: id, createDate: t, recurring: recurring, score: score}
-	return task, nil
+	var task Task
+	err := json.Unmarshal([]byte(str), &task)
+	return task, err
 }
 
 type TaskManager struct {
@@ -59,7 +51,7 @@ type TaskManager struct {
 func taskListDescr(list map[int]Task) string {
 	res := []string{}
 	for _, t := range list {
-		res = append(res, fmt.Sprint(t.id, ": ", t.descr))
+		res = append(res, fmt.Sprint(t.Id, ": ", t.Descr))
 	}
 	return strings.Join(res[:], "\n")
 }
@@ -73,7 +65,7 @@ func (tm TaskManager) backlogSumm() string {
 }
 
 func (tm *TaskManager) addBacklog(descr string) {
-	tm.backlog[tm.backlogId] = Task{id: tm.backlogId, descr: descr, createDate: curTime(), recurring: false, score: 0}
+	tm.backlog[tm.backlogId] = Task{Id: tm.backlogId, Descr: descr, CreateDate: curTime(), recurring: false, Score: 0}
 	tm.backlogId += 1
 }
 
@@ -90,7 +82,7 @@ func (tm *TaskManager) takeToDaily(id int, preserveBacklog bool) bool {
 	if !ok {
 		return false
 	}
-	task.id = tm.dailyId
+	task.Id = tm.dailyId
 	tm.daily[tm.dailyId] = task
 	tm.dailyId += 1
 	if !preserveBacklog {
@@ -117,9 +109,9 @@ func loadTaskMap(list map[int]Task, path string) int {
 	for _, line := range lines {
 		task, e := deserialize(line)
 		_check(e)
-		list[task.id] = task
-		if task.id > maxid {
-			maxid = task.id
+		list[task.Id] = task
+		if task.Id > maxid {
+			maxid = task.Id
 		}
 	}
 	return maxid + 1
